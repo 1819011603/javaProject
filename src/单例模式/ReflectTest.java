@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author 18190
@@ -20,6 +21,9 @@ import java.util.concurrent.*;
 public class ReflectTest<T> {
 //    NotSerializableEnumSingleton  是无法使用反射创建的 只能通过构造函数传递
     Singleton<T> o;
+
+//    保证错误代码只输出一次
+    static volatile AtomicInteger i = new AtomicInteger();
     public ReflectTest(){
 
     }
@@ -37,21 +41,26 @@ public class ReflectTest<T> {
 
             singleton = declaredConstructor.newInstance("测试",0);
         }catch (Exception e){
-
+            if (i.get() == 0){
 //          无法创建的真正原因
-            System.out.println("无法创建的真正原因if ((clazz.getModifiers() & Modifier.ENUM) != 0)\n" +
-                    "            throw new IllegalArgumentException(\"Cannot reflectively create enum objects\");");
+                System.out.println("无法创建的真正原因if ((clazz.getModifiers() & Modifier.ENUM) != 0)\n" +
+                        "            throw new IllegalArgumentException(\"Cannot reflectively create enum objects\");");
+                System.out.println(e.toString());
+            }
+
 
 //            如果无法用反射  直接返回
             return this.o;
 
+        }finally {
+            i.incrementAndGet();
         }
-
         return singleton;
     }
 //    检测反射
     public  Singleton<T> getInstanceByReflect(Class<? extends Singleton<T>> cl){
         Singleton<T> singleton = null;
+
         try {
             Constructor<? extends Singleton<T>> declaredConstructor = cl.getDeclaredConstructor();
 
@@ -72,6 +81,7 @@ public class ReflectTest<T> {
 
     public void testReflect(Class<? extends Singleton<T>> cl) {
        try {
+           i.set(0);
            Singleton<T> singleton = getInstanceByReflect(cl);
 
 //        false
@@ -87,7 +97,7 @@ public class ReflectTest<T> {
     public void testSerialization(Class<? extends Singleton<T>> cl,String propertyName){
 //        为了拿到单例
         Singleton<T> singleton = getInstanceByReflect(cl);
-
+        i.set(0);
 //        拿到单例
         T instance = singleton.getSingleton();
         T serializedInstance = null;
@@ -129,6 +139,7 @@ public class ReflectTest<T> {
         List< Singleton<T>> list = new ArrayList<>();
 
         int total = 50;
+        i.set(0);
 
         for (int i = 0; i < total; i++){
             list.add(getInstanceByReflect(cl));
