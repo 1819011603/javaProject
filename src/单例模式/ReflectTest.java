@@ -1,5 +1,6 @@
 package 单例模式;
 
+import com.sun.xml.internal.ws.api.pipe.Engine;
 import 单例模式.Singleton;
 
 import java.io.*;
@@ -147,13 +148,13 @@ public class ReflectTest<T> {
 
         List<T> list1 = new CopyOnWriteArrayList<>();
         CountDownLatch countDownLatch = new CountDownLatch(total);
-
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(10, 30, 10L, TimeUnit.SECONDS, new LinkedBlockingDeque<>(),new DaemonThreadFactory());
         for (int i = 0; i < total; i++){
             int finalI = i;
-            new Thread(()->{
+            threadPoolExecutor.submit(()->{
                 list1.add(list.get(finalI).getSingleton());
                 countDownLatch.countDown();
-            }).start();
+            });
         }
 
         try {
@@ -168,10 +169,40 @@ public class ReflectTest<T> {
 //        System.out.println(list1);
         System.out.println("testManyThread: " + list1.get(0).equals(list1.get(list1.size() - 1)));
 
+//        要关闭线程池  不然程序不会立马停止
+//        使用线程池时，在main完成之前没的调用shutdonw使得，
+//        java进程不会结束。线程池默认的线程不是“守护线程”，
+//        线程池的timeout 大于 0时，code数量的线程是不会终止的。所以，当所有任务完成后，java程序不会结束。
+//        threadPoolExecutor.shutdown();
     }
 
 
     public static void main(String[] args) throws IllegalAccessException, InvocationTargetException, InstantiationException, NoSuchMethodException {
 
+    }
+
+
+    private static class DaemonThreadFactory implements ThreadFactory {
+        static final AtomicInteger poolNumber = new AtomicInteger(1);
+        final AtomicInteger threadNumber = new AtomicInteger(1);
+        final String namePrefix;
+
+        DaemonThreadFactory() {
+            this.namePrefix = "myZzl-" + poolNumber.getAndIncrement() + "-thread-";
+        }
+
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread((ThreadGroup)null, r, this.namePrefix + this.threadNumber.getAndIncrement(), 0L);
+            if (!t.isDaemon()) {
+                t.setDaemon(true);
+            }
+
+            if (t.getPriority() != 5) {
+                t.setPriority(5);
+            }
+
+            return t;
+        }
     }
 }
