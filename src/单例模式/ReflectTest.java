@@ -154,6 +154,7 @@ public class ReflectTest<T> {
             threadPoolExecutor.submit(()->{
                 list1.add(list.get(finalI).getSingleton());
                 countDownLatch.countDown();
+                System.out.println(Thread.currentThread().getName());
             });
         }
 
